@@ -45,7 +45,7 @@ brain --root . council `
   --config brain.config.json
 ```
 
-The fixture is scripted and must not be reused for real decisions. Connect any AI through [the JSON-over-stdin adapter](docs/PROVIDER-ADAPTER.md), or let a host such as Codex orchestrate its own subagents and store normalized results. Command providers are disabled unless `--allow-command-providers` is supplied because configured executables are privileged and not sandboxed.
+The fixture is scripted and must not be reused for real decisions. Connect any AI through [the JSON-over-stdin adapter](docs/PROVIDER-ADAPTER.md), or use [Codex-native subagents](docs/CODEX-SUBAGENTS.md) without an API key. Command providers are disabled unless `--allow-command-providers` is supplied because configured executables are privileged and not sandboxed.
 
 The `0.85`, `0.90`, and `0.95` values are heuristic readiness thresholds for low, medium, and high risk. They are not model self-confidence or guaranteed correctness. Hard gates always override the score.
 

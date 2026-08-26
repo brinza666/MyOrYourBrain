@@ -13,4 +13,15 @@ description: Operate a MyOrYourBrain Git-backed memory repository, including pri
 6. Bound improvement and require a materially different retry.
 7. Inspect and validate before approval, promotion, reset, export, commit, or push.
 
-Use `brain --root REPOSITORY --help`. Codex-native subagents can fill council roles without an API key. Command providers are privileged, opt-in, and not sandboxed. Return conclusions, evidence, risks, status, and next action—never hidden reasoning.
+## Codex-native council
+
+When the user requests council review or the task is materially uncertain, Codex may fill the roles with native subagents and no API key:
+
+- positive: an economical Luna/mini-class model;
+- negative: a Terra-class model with sufficient reasoning depth;
+- evaluation: the strongest available non-chief model;
+- chief: the root agent using the strongest available model.
+
+Run positive and negative independently in parallel, then give their inspectable conclusions to evaluation. The root chief applies deterministic gates and makes the final decision. Record actual model IDs and any fallback; never claim independence or "strongest" when availability is unknown. Use at most three subagents per iteration and the configured maximum of three iterations. Stop early when deterministic checks are sufficient.
+
+Use `brain --root REPOSITORY --help`. Command providers are privileged, opt-in, and not sandboxed. Return conclusions, evidence, risks, status, and next action—never hidden reasoning.
