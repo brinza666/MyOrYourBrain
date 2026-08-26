@@ -25,6 +25,16 @@ def _load_evidence(path: str | Path) -> list[Evidence]:
     return [Evidence.from_dict(item) for item in raw]
 
 
+def _load_json_object(path: str | Path, name: str) -> dict[str, Any]:
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise BrainError(f"cannot load {name} {path}: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise BrainError(f"{name} file must contain an object")
+    return raw
+
+
 def _text_argument(args: argparse.Namespace) -> str:
     if args.text is not None and args.file is not None:
         raise BrainError("use either --text or --file, not both")
@@ -80,6 +90,21 @@ def build_parser() -> argparse.ArgumentParser:
     inspect = commands.add_parser("inspect", help="show an active or archived council outcome")
     inspect.add_argument("run_id")
 
+    record_council = commands.add_parser(
+        "record-council",
+        help="store a validated structured v2 council result without executing providers",
+    )
+    record_council.add_argument("--input", required=True)
+
+    observe = commands.add_parser(
+        "observe",
+        help="append a hash-bound post-run outcome observation",
+    )
+    observe.add_argument("run_id")
+    observe.add_argument("--status", choices=("succeeded", "failed", "mixed"), required=True)
+    observe.add_argument("--evidence", required=True, help="evidence artifact inside the brain repository")
+    observe.add_argument("--note", required=True)
+
     approve = commands.add_parser("approve", help="record a local human attestation bound to the run hash")
     approve.add_argument("run_id")
     approve.add_argument("--approved-by", required=True)
@@ -132,6 +157,26 @@ def main(argv: list[str] | None = None) -> int:
             _print(outcome.to_dict())
         elif args.command == "inspect":
             _print(store.load_run(args.run_id))
+        elif args.command == "record-council":
+            _print(
+                {
+                    "path": str(
+                        store.record_council(
+                            _load_json_object(args.input, "recorded council")
+                        )
+                    ),
+                    "executed": False,
+                }
+            )
+        elif args.command == "observe":
+            _print(
+                store.record_observation(
+                    args.run_id,
+                    status=args.status,
+                    evidence_path=args.evidence,
+                    note=args.note,
+                )
+            )
         elif args.command == "approve":
             _print(
                 {

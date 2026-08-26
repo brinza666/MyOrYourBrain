@@ -4,21 +4,58 @@
   "title": "MyOrYourBrain council outcome",
   "type": "object",
   "required": [
+    "format",
     "run_id",
     "goal",
     "risk",
+    "acceptance_criteria",
+    "evidence",
     "status",
     "iterations",
     "readiness",
     "final_summary",
     "roles",
     "missing_capabilities",
+    "transcript",
+    "observations",
     "created_at"
   ],
   "properties": {
+    "format": {"enum": ["my-or-your-brain-run-v2"]},
     "run_id": {"type": "string"},
     "goal": {"type": "string"},
     "risk": {"enum": ["low", "medium", "high"]},
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "properties": {
+          "id": {"type": "string"},
+          "text": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": ["id", "source", "sha256", "quality", "verified", "description"],
+        "properties": {
+          "id": {"type": "string"},
+          "source": {"type": "string"},
+          "sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+          "quality": {"type": "number", "minimum": 0, "maximum": 1},
+          "verified": {"type": "boolean"},
+          "description": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
     "status": {"enum": ["accepted", "rejected", "deferred", "blocked", "cooldown"]},
     "iterations": {"type": "integer", "minimum": 0},
     "readiness": {
@@ -31,12 +68,105 @@
         "components": {"type": "object"},
         "penalties": {"type": "object"},
         "hard_gates": {"type": "array", "items": {"type": "string"}}
-      }
+      },
+      "additionalProperties": false
     },
     "final_summary": {"type": "string"},
-    "roles": {"type": "object"},
-    "missing_capabilities": {"type": "object"},
+    "roles": {
+      "type": "object",
+      "properties": {
+        "positive": {"type": "object"},
+        "negative": {"type": "object"},
+        "evaluation": {"type": "object"},
+        "chief": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "missing_capabilities": {
+      "type": "object",
+      "required": ["skills", "connections", "knowledge", "optional"],
+      "properties": {
+        "skills": {"type": "array", "items": {"type": "string"}},
+        "connections": {"type": "array", "items": {"type": "string"}},
+        "knowledge": {"type": "array", "items": {"type": "string"}},
+        "optional": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
     "next_eligible_at": {"type": ["string", "null"]},
+    "transcript": {
+      "type": "array",
+      "maxItems": 80,
+      "items": {
+        "type": "object",
+        "required": ["iteration", "role", "phase", "status", "recorded_at"],
+        "properties": {
+          "iteration": {"type": "integer", "minimum": 1, "maximum": 20},
+          "role": {"enum": ["positive", "negative", "evaluation", "chief"]},
+          "phase": {"type": "string"},
+          "status": {"enum": ["succeeded", "failed"]},
+          "recorded_at": {"type": "string"},
+          "result": {"type": "object"},
+          "error": {"type": "string"}
+        },
+        "oneOf": [
+          {
+            "properties": {"status": {"const": "succeeded"}},
+            "required": ["result"],
+            "not": {"required": ["error"]}
+          },
+          {
+            "properties": {"status": {"const": "failed"}},
+            "required": ["error"],
+            "not": {"required": ["result"]}
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    "observations": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "required": ["id", "recorded_at", "status", "note", "evidence"],
+        "properties": {
+          "id": {"type": "string"},
+          "recorded_at": {"type": "string"},
+          "status": {"enum": ["succeeded", "failed", "mixed"]},
+          "note": {"type": "string"},
+          "evidence": {
+            "type": "object",
+            "required": ["source", "sha256", "bytes"],
+            "properties": {
+              "source": {"type": "string"},
+              "sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+              "bytes": {"type": "integer", "minimum": 0}
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "created_at": {"type": "string"}
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"risk": {"const": "high"}}, "required": ["risk"]},
+      "then": {"properties": {"status": {"not": {"const": "accepted"}}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "accepted"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "roles": {"required": ["positive", "negative", "evaluation", "chief"]},
+          "readiness": {
+            "properties": {"hard_gates": {"maxItems": 0}}
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
 }

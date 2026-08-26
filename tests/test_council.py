@@ -47,7 +47,23 @@ class CouncilRunnerTests(unittest.TestCase):
         self.assertEqual(4, len({result.model_id for result in outcome.roles.values()}))
         self.assertEqual("model-chief", outcome.roles["chief"].model_id)
         self.assertTrue(runner.registry.chief_is_strongest_validated())
-        self.assertEqual("accepted", self.store.load_run("accepted-council")["status"])
+        stored = self.store.load_run("accepted-council")
+        self.assertEqual("accepted", stored["status"])
+        self.assertEqual("my-or-your-brain-run-v2", stored["format"])
+        self.assertEqual(
+            [{"id": "criterion-1", "text": "All hard gates pass"}],
+            stored["acceptance_criteria"],
+        )
+        self.assertEqual("evidence-1", stored["evidence"][0]["id"])
+        self.assertTrue(stored["evidence"][0]["verified"])
+        self.assertEqual(
+            ["positive", "negative", "evaluation", "chief"],
+            [entry["role"] for entry in stored["transcript"]],
+        )
+        self.assertTrue(all(entry["status"] == "succeeded" for entry in stored["transcript"]))
+        serialized = json.dumps(stored["transcript"], sort_keys=True)
+        self.assertNotIn("chain_of_thought", serialized)
+        self.assertNotIn("raw_response", serialized)
 
     def test_claimed_verified_flag_cannot_bypass_a_mismatched_local_hash(self) -> None:
         evidence = verified_evidence(self.store)
@@ -142,6 +158,9 @@ class CouncilRunnerTests(unittest.TestCase):
             iteration_events[0]["strategy_hash"],
             iteration_events[1]["strategy_hash"],
         )
+        transcript = self.store.load_run("repeated-strategy")["transcript"]
+        self.assertEqual(8, len(transcript))
+        self.assertEqual([1] * 4 + [2] * 4, [entry["iteration"] for entry in transcript])
 
     def test_forbidden_action_is_rejected_as_a_blocked_outcome(self) -> None:
         invalid_iteration = council_iteration()
@@ -161,7 +180,11 @@ class CouncilRunnerTests(unittest.TestCase):
 
         self.assertEqual("blocked", outcome.status)
         self.assertTrue(any("not allowed" in gate for gate in outcome.readiness.hard_gates))
-        self.assertEqual("blocked", self.store.load_run("forbidden-action")["status"])
+        stored = self.store.load_run("forbidden-action")
+        self.assertEqual("blocked", stored["status"])
+        self.assertEqual(1, len(stored["transcript"]))
+        self.assertEqual("positive", stored["transcript"][0]["role"])
+        self.assertEqual("failed", stored["transcript"][0]["status"])
 
     def test_command_provider_is_disabled_by_default_without_execution(self) -> None:
         config = {
@@ -247,6 +270,46 @@ class CouncilRunnerTests(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 2.5)
         self.assertEqual("cooldown", outcome.status)
         self.assertIsNotNone(outcome.next_eligible_at)
+
+    def test_unexpected_provider_failure_is_recorded_and_terminal(self) -> None:
+        class UnexpectedProvider:
+            def generate(self, role, request, iteration, timeout_seconds):
+                raise RuntimeError("synthetic provider crash")
+
+        assignments = {
+            role: Assignment("unexpected", f"model-{role}", "test", 100 if role == "chief" else 10, True)
+            for role in ROLES
+        }
+        registry = ProviderRegistry({"unexpected": UnexpectedProvider()}, assignments)
+        runner = CouncilRunner(
+            self.store,
+            registry,
+            {
+                "thresholds": {"low": 0.85, "medium": 0.9, "high": 0.95},
+                "limits": {
+                    "max_iterations": 1,
+                    "max_elapsed_seconds": 10,
+                    "max_no_progress_iterations": 1,
+                    "minimum_progress": 0.02,
+                    "cooldown_hours": 24,
+                },
+            },
+        )
+
+        outcome = runner.run(
+            "Record an unexpected provider failure",
+            acceptance_criteria=["The run becomes terminal with a bounded failure record"],
+            risk="low",
+            evidence=[],
+            run_id="unexpected-provider",
+        )
+
+        self.assertEqual("blocked", outcome.status)
+        stored = self.store.load_run("unexpected-provider")
+        self.assertEqual("blocked", stored["status"])
+        self.assertEqual("failed", stored["transcript"][0]["status"])
+        self.assertIn("RuntimeError", stored["transcript"][0]["error"])
+        self.assertNotIn("synthetic provider crash", stored["transcript"][0]["error"])
 
     def test_strict_boolean_input_and_config_validation(self) -> None:
         with self.assertRaisesRegex(BrainError, "must be a boolean"):

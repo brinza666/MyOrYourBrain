@@ -47,6 +47,14 @@ brain --root . council `
 
 The fixture is scripted and must not be reused for real decisions. Connect any AI through [the JSON-over-stdin adapter](docs/PROVIDER-ADAPTER.md), or use [Codex-native subagents](docs/CODEX-SUBAGENTS.md) without an API key. Command providers are disabled unless `--allow-command-providers` is supplied because configured executables are privileged and not sandboxed.
 
+Every local run is stored as `my-or-your-brain-run-v2`. It retains acceptance-criterion text, locally verified evidence metadata, and the structured result or bounded failure for every role in every iteration. Raw prompts, provider responses, hidden reasoning, and chain-of-thought are neither requested nor stored. A council run created by another provider-neutral orchestrator can be imported without execution:
+
+```powershell
+brain --root . record-council --input .local\incoming\council-result.json
+```
+
+The input must satisfy the strict [external council import schema](schemas/recorded-council-v2.schema.json) and the stronger runtime checks for typed roles, transcript/final-role coherence, terminal/high-risk invariants, and secrets. Unknown fields and hidden-reasoning fields fail closed. The broader [council outcome schema](schemas/council-outcome.schema.json) also describes partial blocked/cooldown results produced when a provider fails before all four roles complete.
+
 The `0.85`, `0.90`, and `0.95` values are heuristic readiness thresholds for low, medium, and high risk. They are not model self-confidence or guaranteed correctness. Hard gates always override the score.
 
 ## Approval, promotion, and reset
@@ -61,6 +69,17 @@ brain --root . reset --run-id RUN_ID
 ```
 
 `reset` archives runtime checkpoints; it never deletes durable memory. A local approval records intent but does not authenticate identity.
+
+After an approved change is implemented and checked, attach the evidence artifact and observed outcome:
+
+```powershell
+brain --root . observe RUN_ID `
+  --status succeeded `
+  --evidence fixtures\observed-result.txt `
+  --note "The deterministic implementation check passed."
+```
+
+The evidence must be a regular file of at most 5 MB inside the repository. It is recorded by relative path, byte count, and SHA-256; its contents are not copied into the run. Because observations change the run hash, an existing promotion approval becomes invalid and must be recorded again after inspection.
 
 ## Public export
 

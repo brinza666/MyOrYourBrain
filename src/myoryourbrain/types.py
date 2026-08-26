@@ -200,6 +200,8 @@ class CouncilOutcome:
     run_id: str
     goal: str
     risk: str
+    acceptance_criteria: list[dict[str, str]]
+    evidence: list[dict[str, Any]]
     status: str
     iterations: int
     readiness: ReadinessScore
@@ -207,10 +209,13 @@ class CouncilOutcome:
     roles: dict[str, RoleResult]
     missing_capabilities: dict[str, list[str]]
     next_eligible_at: str | None = None
+    transcript: list[dict[str, Any]] = field(default_factory=list)
+    observations: list[dict[str, Any]] = field(default_factory=list)
     created_at: str = field(default_factory=utc_now)
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
+        payload["format"] = "my-or-your-brain-run-v2"
         payload["readiness"] = self.readiness.to_dict()
         payload["roles"] = {name: result.to_dict() for name, result in self.roles.items()}
         return payload
