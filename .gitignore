@@ -1,0 +1,17 @@
+.local/
+.env
+.env.*
+!.env.example
+memory/private/
+providers.local.json
+*.key
+*.pem
+*.pfx
+*.p12
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+dist/
+build/
+*.egg-info/

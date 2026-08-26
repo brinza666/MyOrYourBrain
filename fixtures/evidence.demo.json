@@ -1,0 +1,10 @@
+[
+  {
+    "id": "demo-test-report",
+    "source": "fixtures/demo-report.txt",
+    "sha256": "dea1665d8608695c64f3cd16695d8745e5d2aef1f5570bc93170cc075aab3f14",
+    "quality": 0.98,
+    "verified": true,
+    "description": "Offline fixture backed by a local deterministic test report."
+  }
+]

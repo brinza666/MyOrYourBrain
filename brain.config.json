@@ -1,0 +1,14 @@
+{
+  "thresholds": {
+    "low": 0.85,
+    "medium": 0.9,
+    "high": 0.95
+  },
+  "limits": {
+    "max_iterations": 3,
+    "max_elapsed_seconds": 900,
+    "max_no_progress_iterations": 2,
+    "minimum_progress": 0.02,
+    "cooldown_hours": 24
+  }
+}

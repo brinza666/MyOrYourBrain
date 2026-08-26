@@ -1,0 +1,54 @@
+{
+  "iterations": [
+    {
+      "positive": {
+        "approach_id": "demo-minimal-change-v1",
+        "summary": "The fixture candidate satisfies the stated demo criterion with a reversible, tested change.",
+        "claims": [{"id": "positive-pass", "text": "The deterministic demo check passed.", "evidence_ids": ["demo-test-report"], "criterion_ids": ["criterion-1"]}],
+        "risks": ["This is an offline fixture and must not be treated as analysis of another goal."],
+        "contradictions": [],
+        "questions": [],
+        "recommendation": "approve",
+        "self_confidence": 0.9,
+        "actions": [{"kind": "propose_note", "description": "Propose the verified demo result for explicit promotion."}],
+        "needs": {"skills": [], "connections": [], "knowledge": [], "optional": []}
+      },
+      "negative": {
+        "approach_id": "demo-failure-check-v1",
+        "summary": "The failure review found no unresolved issue in the bounded offline demo.",
+        "claims": [{"id": "negative-pass", "text": "The demo boundary and rollback condition were checked.", "evidence_ids": ["demo-test-report"], "criterion_ids": ["criterion-1"]}],
+        "risks": ["A scripted fixture does not validate a live model provider."],
+        "contradictions": [],
+        "questions": [],
+        "recommendation": "approve",
+        "self_confidence": 0.88,
+        "actions": [{"kind": "run_check", "description": "Retain the deterministic invariant test."}],
+        "needs": {"skills": [], "connections": [], "knowledge": [], "optional": []}
+      },
+      "evaluation": {
+        "approach_id": "demo-rubric-v1",
+        "summary": "The evidence resolves the fixture claims and no hard-gate issue remains.",
+        "claims": [{"id": "evaluation-pass", "text": "Every fixture claim has a verified evidence reference.", "evidence_ids": ["demo-test-report"], "criterion_ids": ["criterion-1"]}],
+        "risks": ["Readiness is heuristic until calibrated on held-out tasks."],
+        "contradictions": [],
+        "questions": [],
+        "recommendation": "approve",
+        "self_confidence": 0.91,
+        "actions": [{"kind": "run_check", "description": "Confirm the outcome schema before promotion."}],
+        "needs": {"skills": [], "connections": [], "knowledge": [], "optional": []}
+      },
+      "chief": {
+        "approach_id": "demo-chief-gate-v1",
+        "summary": "Approve only this named offline demo outcome; no provider or external side effect was exercised.",
+        "claims": [{"id": "chief-pass", "text": "The bounded demo meets its declared acceptance criterion.", "evidence_ids": ["demo-test-report"], "criterion_ids": ["criterion-1"]}],
+        "risks": ["Promotion remains a separate explicit command."],
+        "contradictions": [],
+        "questions": [],
+        "recommendation": "approve",
+        "self_confidence": 0.93,
+        "actions": [{"kind": "request_approval", "description": "Request explicit approval before writing an evolution record."}],
+        "needs": {"skills": [], "connections": [], "knowledge": [], "optional": []}
+      }
+    }
+  ]
+}

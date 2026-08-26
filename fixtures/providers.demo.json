@@ -1,0 +1,11 @@
+{
+  "providers": {
+    "offline": {"kind": "fixture", "path": "council.demo.json"}
+  },
+  "assignments": {
+    "positive": {"provider": "offline", "model_id": "fixture-economy-a", "model_tier": "economy", "rank": 1, "validated": true},
+    "negative": {"provider": "offline", "model_id": "fixture-economy-b", "model_tier": "economy", "rank": 1, "validated": true},
+    "evaluation": {"provider": "offline", "model_id": "fixture-evaluator", "model_tier": "strong", "rank": 2, "validated": true},
+    "chief": {"provider": "offline", "model_id": "fixture-chief", "model_tier": "strongest-validated", "rank": 3, "validated": true}
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "providers": {
+    "economy": {
+      "kind": "command",
+      "command": ["your-ai-adapter", "--tier", "economy"],
+      "pass_env": ["YOUR_PROVIDER_API_KEY"],
+      "timeout_seconds": 120,
+      "max_output_bytes": 1000000
+    },
+    "strong": {
+      "kind": "command",
+      "command": ["your-ai-adapter", "--tier", "strong"],
+      "pass_env": ["YOUR_PROVIDER_API_KEY"],
+      "timeout_seconds": 240,
+      "max_output_bytes": 1000000
+    }
+  },
+  "assignments": {
+    "positive": {
+      "provider": "economy",
+      "model_id": "replace-with-validated-economy-model",
+      "model_tier": "economy",
+      "rank": 1,
+      "validated": true
+    },
+    "negative": {
+      "provider": "economy",
+      "model_id": "replace-with-an-independent-model-when-possible",
+      "model_tier": "economy",
+      "rank": 1,
+      "validated": true
+    },
+    "evaluation": {
+      "provider": "strong",
+      "model_id": "replace-with-validated-evaluator",
+      "model_tier": "strong",
+      "rank": 2,
+      "validated": true
+    },
+    "chief": {
+      "provider": "strong",
+      "model_id": "replace-with-strongest-locally-validated-model",
+      "model_tier": "strongest-validated",
+      "rank": 3,
+      "validated": true
+    }
+  }
+}

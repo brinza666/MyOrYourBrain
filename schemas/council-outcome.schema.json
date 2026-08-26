@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/brinza666/MyOrYourBrain/schemas/council-outcome.schema.json",
+  "title": "MyOrYourBrain council outcome",
+  "type": "object",
+  "required": [
+    "run_id",
+    "goal",
+    "risk",
+    "status",
+    "iterations",
+    "readiness",
+    "final_summary",
+    "roles",
+    "missing_capabilities",
+    "created_at"
+  ],
+  "properties": {
+    "run_id": {"type": "string"},
+    "goal": {"type": "string"},
+    "risk": {"enum": ["low", "medium", "high"]},
+    "status": {"enum": ["accepted", "rejected", "deferred", "blocked", "cooldown"]},
+    "iterations": {"type": "integer", "minimum": 0},
+    "readiness": {
+      "type": "object",
+      "required": ["total", "threshold", "calibrated", "components", "penalties", "hard_gates"],
+      "properties": {
+        "total": {"type": "number", "minimum": 0, "maximum": 1},
+        "threshold": {"type": "number", "minimum": 0, "maximum": 1},
+        "calibrated": {"type": "boolean"},
+        "components": {"type": "object"},
+        "penalties": {"type": "object"},
+        "hard_gates": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "final_summary": {"type": "string"},
+    "roles": {"type": "object"},
+    "missing_capabilities": {"type": "object"},
+    "next_eligible_at": {"type": ["string", "null"]},
+    "created_at": {"type": "string"}
+  }
+}
