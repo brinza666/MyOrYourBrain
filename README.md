@@ -6,6 +6,14 @@ It provides private/public memory plus a bounded review council: positive idea, 
 
 “Self-evolution” means versioned improvements to repository-owned prompts, protocols, adapters, schemas, and memory. It does not mean changing model weights, hidden instructions, permissions, or Codex itself.
 
+## Token-efficient agent operation
+
+Interactive agents must use the repository's Caveman Ultra policy: retain technical meaning while removing filler, repetition, unnecessary tool narration, and avoidable context reads. This is an operating rule, not a request to distort code or durable documentation.
+
+Compression never removes negation, conditions, exceptions, paths, commands, identifiers, exact errors, numbers, security warnings, or approval boundaries. Agents temporarily use full wording when compression could make a warning, destructive action, ordered procedure, or technical statement ambiguous. Durable artifacts remain concise professional prose.
+
+See [the token-efficiency contract](docs/TOKEN-EFFICIENCY.md). `python scripts/validate.py` verifies that the canonical and compatibility-agent files retain this policy.
+
 ## Install
 
 Python 3.11 or newer is the only runtime requirement.
@@ -95,4 +103,4 @@ The export is allowlisted, secret-scanned, excludes `.git` history and `.local/`
 python scripts/validate.py
 ```
 
-Read [AGENTS.md](AGENTS.md), [architecture](docs/ARCHITECTURE.md), [requirements](docs/REQUIREMENTS.md), and [design evidence](docs/DESIGN-EVIDENCE.md).
+Read [AGENTS.md](AGENTS.md), [token efficiency](docs/TOKEN-EFFICIENCY.md), [architecture](docs/ARCHITECTURE.md), [requirements](docs/REQUIREMENTS.md), and [design evidence](docs/DESIGN-EVIDENCE.md).
