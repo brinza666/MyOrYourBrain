@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/brinza666/MyOrYourBrain/schemas/recorded-council-v2.schema.json",
+  "title": "MyOrYourBrain strict external council import",
+  "description": "Structural import contract. Runtime validation additionally checks typed role payloads, transcript/final-role equality, terminal invariants, and secret boundaries.",
+  "allOf": [
+    {"$ref": "council-outcome.schema.json"},
+    {
+      "required": [
+        "format",
+        "run_id",
+        "goal",
+        "risk",
+        "acceptance_criteria",
+        "evidence",
+        "status",
+        "iterations",
+        "readiness",
+        "final_summary",
+        "roles",
+        "missing_capabilities",
+        "transcript",
+        "observations",
+        "created_at"
+      ],
+      "properties": {
+        "roles": {
+          "required": ["positive", "negative", "evaluation", "chief"]
+        },
+        "transcript": {
+          "minItems": 4
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"risk": {"const": "high"}},
+        "required": ["risk"]
+      },
+      "then": {
+        "properties": {
+          "readiness": {
+            "properties": {
+              "hard_gates": {
+                "contains": {
+                  "const": "high-risk outcome requires a separate recorded human approval"
+                },
+                "minContains": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}

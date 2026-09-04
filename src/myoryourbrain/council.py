@@ -12,7 +12,7 @@ from typing import Any
 from .providers import ProviderRegistry, ROLES
 from .security import scan_text
 from .storage import BrainStore
-from .types import BrainError, CouncilOutcome, Evidence, ReadinessScore, RoleResult, require_text
+from .types import BrainError, CouncilOutcome, Evidence, ReadinessScore, RoleResult, require_text, utc_now
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
@@ -68,6 +68,14 @@ def _role_view(result: RoleResult) -> dict[str, Any]:
         "actions": [action.__dict__ for action in result.actions],
         "needs": result.needs.__dict__,
     }
+
+
+def _safe_failure_message(error: BrainError) -> str:
+    """Keep bounded operational diagnostics, never provider secrets or hidden reasoning."""
+    message = str(error).strip()[:2_000] or "provider failed without a diagnostic"
+    if scan_text(message):
+        return "provider failed; diagnostic omitted by secret scanner"
+    return message
 
 
 class CouncilRunner:
@@ -308,15 +316,25 @@ class CouncilRunner:
         if len(evidence_by_id) != len(evidence):
             raise BrainError("evidence ids must be unique")
         run_id = run_id or f"run-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{uuid.uuid4().hex[:8]}"
+        criteria_records = [
+            {"id": f"criterion-{index}", "text": text}
+            for index, text in enumerate(criteria, start=1)
+        ]
+        evidence_records = [dict(item.__dict__) for item in evidence]
+        transcript: list[dict[str, Any]] = []
         self.store.begin_run(
             run_id,
             {
-                "format": "my-or-your-brain-checkpoint-v1",
+                "format": "my-or-your-brain-run-v2",
                 "run_id": run_id,
                 "goal": goal,
                 "risk": risk,
+                "acceptance_criteria": criteria_records,
+                "evidence": evidence_records,
                 "status": "starting",
-                "updated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+                "transcript": transcript,
+                "observations": [],
+                "updated_at": utc_now(),
             },
         )
         limits = self.config["limits"]
@@ -338,15 +356,12 @@ class CouncilRunner:
         base_request = {
             "task": {
                 "goal": goal,
-                "acceptance_criteria": [
-                    {"id": f"criterion-{index}", "text": text}
-                    for index, text in enumerate(criteria, start=1)
-                ],
+                "acceptance_criteria": criteria_records,
                 "risk": risk,
                 "readiness_target": float(self.config["thresholds"][risk]),
                 "permitted_actions": ["research", "propose_note", "request_approval", "run_check"],
             },
-            "evidence": [item.__dict__ for item in evidence],
+            "evidence": evidence_records,
             "rules": {
                 "output_only": True,
                 "no_hidden_reasoning_requested": True,
@@ -357,24 +372,89 @@ class CouncilRunner:
         iterations_completed = 0
         criterion_ids = {f"criterion-{index}" for index in range(1, len(criteria) + 1)}
 
-        def generate(role: str, request: dict[str, Any], iteration: int) -> RoleResult:
+        def save_checkpoint(
+            *,
+            iteration: int,
+            completed_role: str | None = None,
+            failed_role: str | None = None,
+        ) -> None:
+            payload: dict[str, Any] = {
+                "format": "my-or-your-brain-run-v2",
+                "run_id": run_id,
+                "goal": goal,
+                "risk": risk,
+                "acceptance_criteria": criteria_records,
+                "evidence": evidence_records,
+                "status": "running",
+                "iteration": iteration,
+                "transcript": list(transcript),
+                "observations": [],
+                "updated_at": utc_now(),
+            }
+            if completed_role is not None:
+                payload["completed_role"] = completed_role
+            if failed_role is not None:
+                payload["failed_role"] = failed_role
+            self.store.save_run(run_id, payload)
+
+        def generate(role: str, request: dict[str, Any], iteration: int, phase: str) -> RoleResult:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise BrainError("global council deadline expired")
-            result = self.registry.generate(role, request, iteration, timeout_seconds=remaining)
-            self.store.save_run(
-                run_id,
+                error = BrainError("global council deadline expired")
+                transcript.append(
+                    {
+                        "iteration": iteration,
+                        "role": role,
+                        "phase": phase,
+                        "status": "failed",
+                        "recorded_at": utc_now(),
+                        "error": _safe_failure_message(error),
+                    }
+                )
+                save_checkpoint(iteration=iteration, failed_role=role)
+                raise error
+            try:
+                result = self.registry.generate(role, request, iteration, timeout_seconds=remaining)
+            except BrainError as error:
+                transcript.append(
+                    {
+                        "iteration": iteration,
+                        "role": role,
+                        "phase": phase,
+                        "status": "failed",
+                        "recorded_at": utc_now(),
+                        "error": _safe_failure_message(error),
+                    }
+                )
+                save_checkpoint(iteration=iteration, failed_role=role)
+                raise
+            except Exception as unexpected:
+                error = BrainError(
+                    f"provider failed unexpectedly ({type(unexpected).__name__}); diagnostic omitted"
+                )
+                transcript.append(
+                    {
+                        "iteration": iteration,
+                        "role": role,
+                        "phase": phase,
+                        "status": "failed",
+                        "recorded_at": utc_now(),
+                        "error": _safe_failure_message(error),
+                    }
+                )
+                save_checkpoint(iteration=iteration, failed_role=role)
+                raise error from unexpected
+            transcript.append(
                 {
-                    "format": "my-or-your-brain-checkpoint-v1",
-                    "run_id": run_id,
-                    "goal": goal,
-                    "risk": risk,
-                    "status": "running",
                     "iteration": iteration,
-                    "completed_role": role,
-                    "updated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-                },
+                    "role": role,
+                    "phase": phase,
+                    "status": "succeeded",
+                    "recorded_at": utc_now(),
+                    "result": result.to_dict(),
+                }
             )
+            save_checkpoint(iteration=iteration, completed_role=role)
             return result
 
         for iteration in range(1, max_iterations + 1):
@@ -383,23 +463,33 @@ class CouncilRunner:
                 next_eligible_at = (datetime.now(timezone.utc) + timedelta(hours=cooldown_hours)).replace(microsecond=0).isoformat()
                 break
             try:
-                positive = generate("positive", {**base_request, "phase": "independent_proposal"}, iteration)
+                positive = generate(
+                    "positive",
+                    {**base_request, "phase": "independent_proposal"},
+                    iteration,
+                    "independent_proposal",
+                )
                 final_roles = {"positive": positive}
-                negative = generate("negative", {**base_request, "phase": "independent_failure_analysis"}, iteration)
+                negative = generate(
+                    "negative",
+                    {**base_request, "phase": "independent_failure_analysis"},
+                    iteration,
+                    "independent_failure_analysis",
+                )
                 final_roles["negative"] = negative
                 evaluation_request = {
                     **base_request,
                     "phase": "evaluate",
                     "candidate_outputs": [_role_view(positive), _role_view(negative)],
                 }
-                evaluation = generate("evaluation", evaluation_request, iteration)
+                evaluation = generate("evaluation", evaluation_request, iteration, "evaluate")
                 final_roles["evaluation"] = evaluation
                 chief_request = {
                     **base_request,
                     "phase": "chief_gate",
                     "candidate_outputs": [_role_view(positive), _role_view(negative), _role_view(evaluation)],
                 }
-                chief = generate("chief", chief_request, iteration)
+                chief = generate("chief", chief_request, iteration, "chief_gate")
                 final_roles["chief"] = chief
             except BrainError as exc:
                 iterations_completed = iteration
@@ -415,7 +505,7 @@ class CouncilRunner:
                     calibrated=False,
                     components={},
                     penalties={},
-                    hard_gates=[f"provider or deadline failure: {exc}"],
+                    hard_gates=[f"provider or deadline failure: {_safe_failure_message(exc)}"],
                 )
                 break
             final_roles = {
@@ -477,6 +567,8 @@ class CouncilRunner:
             run_id=run_id,
             goal=goal,
             risk=risk,
+            acceptance_criteria=criteria_records,
+            evidence=evidence_records,
             status=status,
             iterations=iterations_completed,
             readiness=readiness,
@@ -484,6 +576,8 @@ class CouncilRunner:
             roles=final_roles,
             missing_capabilities=missing,
             next_eligible_at=next_eligible_at,
+            transcript=list(transcript),
+            observations=[],
         )
         outcome.assert_terminal()
         self.store.save_run(run_id, outcome.to_dict())
